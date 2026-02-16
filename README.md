@@ -8,25 +8,18 @@ As part of my bachelor thesis "A Recommendation System for the Evaluation of Exp
 
 ## Usage
 
-Clone this repository.
+Clone this repository (either by using the command below or downloading it from GitHub manually).
 
 ```
 git clone https://github.com/marcohenning/recommendation-system.git
 ```
 
-Install Python if you do not already have it.
+Install Python 3 if you do not already have it.
 
-Install the UI library PyQt6.
+Install the required libraries (PyQt6 is used to create the user interface).
 
 ```
-pip install PyQt6
+pip install -r requirements.txt
 ```
 
 Run `src/main.py` to start the application.
-
-## To-Do
-
-* Add an explanation for each evaluation method
-* Explain how the scores are calculated (i.e., why was a certain criteria rated as 4/10?)
-* Improve time & budget to use actual values instead of low, medium and high
-* More in-depth explanations for why methods were discarded
