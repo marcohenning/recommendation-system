@@ -177,6 +177,7 @@ def algorithm(requirements: Requirements):
     discarded_methods = []
     suitable_methods = {}
     method_score_explanations = {}
+    method_score_explanations_descriptions = {}
 
     for evaluation_method in evaluation_methods:
         discarded = False
@@ -187,15 +188,36 @@ def algorithm(requirements: Requirements):
                 for name, value in requirements.__dict__.items():
                     if type(value) == type(evaluation_method.prerequisite):
                         if value != evaluation_method.prerequisite:
-                            discarded_methods.append([evaluation_method.name, "This method has been discarded because the necessary prerequisites are not met."])
+                            if type(evaluation_method.prerequisite) == TextualExplanations:
+                                discarded_methods.append([evaluation_method.name, "This method has been discarded because the method requires explanations to be textual or verbal but they are not."])
+                            elif type(evaluation_method.prerequisite) == SkilledInterviewersAvailable:
+                                discarded_methods.append([evaluation_method.name, "This method has been discarded because the method requires skilled interviewers to be available but they are not."])
+                            elif type(evaluation_method.prerequisite) == Suggestions:
+                                discarded_methods.append([evaluation_method.name, "This method has been discarded because the method requires the system to make suggestions to the user but it does not."])
+                            elif type(evaluation_method.prerequisite) == DomainExpertsAvailable:
+                                discarded_methods.append([evaluation_method.name, "This method has been discarded because the method requires domain experts to be available but they are not."])
+                            elif type(evaluation_method.prerequisite) == RobotHumanLike:
+                                discarded_methods.append([evaluation_method.name, "This method has been discarded because the method requires the robot to be intended to be human-like but it is not."])
+                            elif evaluation_method.prerequisite == ExplanationsWithoutRequest.YES:
+                                discarded_methods.append([evaluation_method.name, "This method has been discarded because the method requires the system to provide explanations without the user requesting them but it does not."])
+                            elif evaluation_method.prerequisite == ExplanationsWithoutRequest.NO:
+                                discarded_methods.append([evaluation_method.name, "This method has been discarded because the method requires the system to provide explanations specifically after the user requests them but it does not."])
+                            elif evaluation_method.prerequisite == SystemType.INTERNAL_PROCESS_VISIBLE:
+                                discarded_methods.append([evaluation_method.name, "This method has been discarded because the method requires the system's internal process to be visible but it is not."])
+                            elif evaluation_method.prerequisite == SystemArchitecture.RULE_BASED:
+                                discarded_methods.append([evaluation_method.name, "This method has been discarded because the method requires the system's architecture to be rule-based but it is not."])
+
                             discarded = True
                             break
         else:
-            discarded_methods.append([evaluation_method.name, "This method has been discarded because the measurement criteria does not match your requirements."])
+            discarded_methods.append([evaluation_method.name, "This method has been discarded because you want to measure {} but the method measures something different.".format(requirements.measurement.name.lower())])
             discarded = True
         # Check if human involvement option is submitted and if it doesn't align with the method, discard it
         if not discarded and requirements.human_participants and requirements.human_participants != evaluation_method.human_participants:
-            discarded_methods.append([evaluation_method.name, "This method has been discarded because the human involvement criteria does not match your requirements."])
+            if requirements.human_participants == HumanParticipants.YES and evaluation_method.human_participants == HumanParticipants.NO:
+                discarded_methods.append([evaluation_method.name, "This method has been discarded because you want to involve human participants but the method is performed without them."])
+            else:
+                discarded_methods.append([evaluation_method.name, "This method has been discarded because you don't want to involve human participants but the method requires them."])
             discarded = True
 
         if discarded: continue
@@ -204,32 +226,51 @@ def algorithm(requirements: Requirements):
 
         scores = []
         scores_explanation = {}
+        scores_explanation_description = {}
 
         # Calculate score for the resulting type of data
         if requirements.data_type:
             score = 10
+            description = "The type of data you want to collect from the evaluation ({}) matches the type of data produced by this method.".format(requirements.data_type.name.lower())
             if requirements.data_type == RequirementsDataType.QUALITATIVE and evaluation_method.data_type == DataType.QUANTITATIVE:
                 score = 0
+                description = "You want to collect qualitative data from the evaluation but this method produces quantitative data."
             elif requirements.data_type == RequirementsDataType.QUANTITATIVE and evaluation_method.data_type == DataType.QUALITATIVE:
                 score = 0
+                description = "You want to collect quantitative data from the evaluation but this method produces qualitative data."
             scores.append(score)
             scores_explanation["Resulting Data"] = score
+            scores_explanation_description["Resulting Data"] = description
 
         # Calculate score for the automation of the method
         if requirements.automated:
             score = 10
+            description = "You want the method to be automated and the method is automated."
             if requirements.automated == Automated.YES and evaluation_method.automated == Automated.NO:
                 score = 0
+                description = "You want the method to be automated but the method is not automated."
+            elif requirements.automated == Automated.NO and evaluation_method.automated == Automated.YES:
+                description = "You don't require the method to be automated but the method is automated (this doesn't have any negative effect so it still scores well)."
+            elif requirements.automated == Automated.NO and evaluation_method.automated == Automated.NO:
+                description = "You don't require the method to be automated and the method isn't automated."
             scores.append(score)
             scores_explanation["Automation"] = score
+            scores_explanation_description["Automation"] = description
 
         # Calculate score for the method being parallelizable
         if requirements.parallelizable:
             score = 10
+            description = "You want the method to be parallelizable and the method is parallelizable."
             if requirements.parallelizable == Parallelizable.YES and evaluation_method.parallelizable == Parallelizable.NO:
                 score = 0
+                description = "You want the method to be parallelizable but the method is not parallelizable."
+            elif requirements.parallelizable == Parallelizable.NO and evaluation_method.parallelizable == Parallelizable.YES:
+                description = "You don't require the method to be parallelizable but the method is parallelizable (this doesn't have any negative effect so it still scores well)."
+            elif requirements.parallelizable == Parallelizable.NO and evaluation_method.parallelizable == Parallelizable.NO:
+                description = "You don't require the method to be parallelizable and the method isn't parallelizable."
             scores.append(score)
             scores_explanation["Parallelizable"] = score
+            scores_explanation_description["Parallelizable"] = description
 
         # Calculate score for the amount of people you can recruit
         if requirements.recruitable_participants:
@@ -242,68 +283,118 @@ def algorithm(requirements: Requirements):
 
             if requirements.recruitable_participants >= participants_recommended:
                 score = 10
+                description = "The amount of participants you can realistically recruit ({}) is equal to, or higher than the recommended amount of participants ({}) for this method.".format(requirements.recruitable_participants, participants_recommended)
             else:
                 score = requirements.recruitable_participants / participants_recommended * 10
+                description = "The amount of participants you can realistically recruit ({}) is lower than the recommended amount of participants ({}) for this method.".format(requirements.recruitable_participants, participants_recommended)
             scores.append(score)
             scores_explanation["Available Participants"] = score
+            scores_explanation_description["Available Participants"] = description
 
         # Calculate score for the iterative potential of the methods
         if requirements.iterative_improvements:
             score = 10
+            description = "You don't want to make iterative improvements to the system and evaluate it each time, so the iterative potential of the method is not relevant."
             if requirements.iterative_improvements == IterativeImprovements.YES:
                 if evaluation_method.iterative_potential == Scale.LOW:
                     score = 0
+                    description = "You want to make iterative improvements to the system and evaluate it each time but this method is not well-suited for iterative use."
                 elif evaluation_method.iterative_potential == Scale.MEDIUM:
                     score = 5
+                    description = "You want to make iterative improvements to the system and this method has decent iterative potential."
                 else:
                     score = 10
+                    description = "You want to make iterative improvements to the system and this method has very high iterative potential."
             scores.append(score)
             scores_explanation["Iterative Potential"] = score
+            scores_explanation_description["Iterative Potential"] = description
 
         # Calculate score for the budget
         if requirements.budget:
+            user_budget = "0 € - 500 €"
+            if requirements.budget == Budget.MEDIUM:
+                user_budget = "500 € - 3000 €"
+            elif requirements.budget == Budget.HIGH:
+                user_budget = "3000+ €"
+
+            method_budget = "0 € - 500 €"
+            if evaluation_method.cost == Scale.MEDIUM:
+                method_budget = "500 € - 3000 €"
+            elif evaluation_method.cost == Scale.HIGH:
+                method_budget = "3000+ €"
+
             score = 10
+            description = "Your budget of {} is equal to or higher than the required budget of this method ({}).".format(user_budget, method_budget)
+
             if requirements.budget == Budget.MEDIUM:
                 if evaluation_method.cost == Scale.HIGH:
                     score = 5
+                    description = "Your budget of {} is lower than the required budget of this method ({}).".format(user_budget, method_budget)
             elif requirements.budget == Budget.LOW:
                 if evaluation_method.cost == Scale.MEDIUM:
                     score = 5
+                    description = "Your budget of {} is lower than the required budget of this method ({}).".format(user_budget, method_budget)
                 elif evaluation_method.cost == Scale.HIGH:
                     score = 0
+                    description = "Your budget of {} is much lower than the required budget of this method ({}).".format(user_budget, method_budget)
             scores.append(score)
             scores_explanation["Budget"] = score
+            scores_explanation_description["Budget"] = description
 
         # Calculate score for the required time
         if requirements.time:
+            user_time = "1 Week"
+            if requirements.time == Time.MEDIUM:
+                user_time = "2-3 Weeks"
+            elif requirements.time == Time.HIGH:
+                user_time = "4+ Weeks"
+
+            method_time = "1 Week"
+            if evaluation_method.required_time == Scale.MEDIUM:
+                method_time = "2-3 Weeks"
+            elif evaluation_method.required_time == Scale.HIGH:
+                method_time = "4+ Weeks"
+
             score = 10
+            description = "Your available time of {} is equal to or higher than the required time for this method ({}).".format(user_time, method_time)
+
             if requirements.time == Time.MEDIUM:
                 if evaluation_method.required_time == Scale.HIGH:
                     score = 5
+                    description = "Your available time of {} is lower than the required time for this method ({}).".format(user_time, method_time)
             elif requirements.time == Time.LOW:
                 if evaluation_method.required_time == Scale.MEDIUM:
                     score = 5
+                    description = "Your available time of {} is lower than the required time for this method ({}).".format(user_time, method_time)
                 elif evaluation_method.required_time == Scale.HIGH:
                     score = 0
+                    description = "Your available time of {} is much lower than the required time for this method ({}).".format(user_time, method_time)
             scores.append(score)
             scores_explanation["Required Time"] = score
+            scores_explanation_description["Required Time"] = description
 
         # Calculate score regarding the difficulty of each method
         if requirements.difficult_methods:
             score = 10
+            description = "You are okay with performing more difficult methods."
             if requirements.difficult_methods == DifficultMethods.NO:
                 if evaluation_method.difficulty == Scale.LOW:
                     score = 10
+                    description = "You are not okay with performing more difficult methods but this method is of low difficulty."
                 elif evaluation_method.difficulty == Scale.MEDIUM:
                     score = 5
+                    description = "You are not okay with performing more difficult methods and this method is of medium difficulty."
                 else:
                     score = 0
+                    description = "You are not okay with performing more difficult methods and this method is of high difficulty."
             scores.append(score)
             scores_explanation["Difficulty"] = score
+            scores_explanation_description["Difficulty"] = description
 
         # Calculate average score from all the scores
         suitable_methods[evaluation_method.name] = sum(scores) / len(scores)
         method_score_explanations[evaluation_method.name] = scores_explanation
+        method_score_explanations_descriptions[evaluation_method.name] = scores_explanation_description
 
     # Sort by score and print every method
     """print("*** Valid Methods: ***\n")
@@ -314,7 +405,7 @@ def algorithm(requirements: Requirements):
     for method in discarded_methods:
         print(method[0] + " -> Reason: " + method[1])"""
 
-    return suitable_methods, discarded_methods, method_score_explanations
+    return suitable_methods, discarded_methods, method_score_explanations, method_score_explanations_descriptions
 
 
 
@@ -720,3 +811,70 @@ number_of_features = EvaluationMethod(
     SystemArchitecture.NEURAL_NETWORK_BASED
 )
 evaluation_methods.append(number_of_features)
+
+
+
+# ***** TESTING *****
+
+form_result_1 = Requirements(
+    Measurement.QUALITY,
+    RequirementsDataType.ANY,
+    Automated.YES,
+    HumanParticipants.YES,
+    Parallelizable.YES,
+    50,
+    DomainExpertsAvailable.NO,
+    SkilledInterviewersAvailable.NO,
+    IterativeImprovements.NO,
+    Budget.MEDIUM,
+    Time.MEDIUM,
+    SystemType.BLACK_BOX,
+    SystemArchitecture.RULE_BASED,
+    ExplanationsWithoutRequest.YES,
+    DifficultMethods.YES,
+    Suggestions.NO,
+    TextualExplanations.YES,
+    RobotHumanLike.NO
+)
+
+form_result_2 = Requirements(
+    Measurement.UNDERSTANDING,
+    RequirementsDataType.ANY,
+    Automated.NO,
+    HumanParticipants.YES,
+    Parallelizable.YES,
+    20,
+    DomainExpertsAvailable.NO,
+    SkilledInterviewersAvailable.YES,
+    IterativeImprovements.NO,
+    Budget.MEDIUM,
+    Time.HIGH,
+    SystemType.BLACK_BOX,
+    SystemArchitecture.RULE_BASED,
+    ExplanationsWithoutRequest.YES,
+    DifficultMethods.YES,
+    Suggestions.NO,
+    TextualExplanations.YES,
+    RobotHumanLike.NO
+)
+
+form_result_3 = Requirements(
+    Measurement.TRUST,
+    RequirementsDataType.QUALITATIVE,
+    Automated.NO,
+    HumanParticipants.YES,
+    Parallelizable.NO,
+    5,
+    DomainExpertsAvailable.NO,
+    SkilledInterviewersAvailable.YES,
+    IterativeImprovements.NO,
+    Budget.HIGH,
+    Time.HIGH,
+    SystemType.BLACK_BOX,
+    SystemArchitecture.RULE_BASED,
+    ExplanationsWithoutRequest.YES,
+    DifficultMethods.NO,
+    Suggestions.YES,
+    TextualExplanations.YES,
+    RobotHumanLike.NO
+)
