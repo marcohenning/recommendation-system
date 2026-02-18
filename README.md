@@ -1,6 +1,6 @@
 # Recommendation System for the Evaluation of Explainability
 
-A recommendation system for the evaluation of explainability developed as part of my bachelor thesis (work in progress).
+A recommendation system for the evaluation of explainability developed as part of my bachelor thesis.
 
 <img width="800" height="528" alt="recommendation-system" src="https://github.com/user-attachments/assets/04ba2b01-9a34-4f1c-a387-27119ee80f19" />
 
